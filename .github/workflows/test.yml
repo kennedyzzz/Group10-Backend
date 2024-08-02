@@ -3,10 +3,10 @@ name: Run API Tests
 on:
   push:
     branches:
-      - main 
+      - main  
   pull_request:
     branches:
-      - main
+      - main  
 
 jobs:
   test:
@@ -19,12 +19,16 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9' 
+          python-version: '3.9'  
 
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
 
-      - name: Run tests
+      - name: Run API tests
         run: |
           pytest test_api.py --maxfail=1 --disable-warnings -q
+
+      - name: Run M-Pesa mock tests
+        run: |
+          pytest mock_mpesa.py --maxfail=1 --disable-warnings -q
