@@ -1,6 +1,6 @@
 import requests
 
-BASE_URL = "http://localhost:3000/" 
+BASE_URL = "http://localhost:3000" 
 
 
 def validate_response(response, expected_status, expected_keys=None):
