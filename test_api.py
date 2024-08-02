@@ -59,3 +59,20 @@ def test_wishlist_add():
     response = requests.post(url, json=data)
     assert response.status_code == 200
     assert response.json().get("message") == "Product added to wishlist"
+
+    def test_wishlist_view():
+        url = f"{BASE_URL}/wishlist"
+    response = requests.get(url)
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
+def test_contact():
+    url = f"{BASE_URL}/contact"
+    data = {
+        "name": "Test User",
+        "email": "testuser@example.com",
+        "message": "This is a test message"
+    }
+    response = requests.post(url, json=data)
+    assert response.status_code == 200
+    assert response.json().get("message") == "Message sent successfully"
