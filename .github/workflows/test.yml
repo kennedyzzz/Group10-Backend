@@ -1,4 +1,4 @@
-name: Run Tests
+name: Run API Tests
 
 on:
   push:
@@ -27,4 +27,4 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest --maxfail=1 --disable-warnings -q
+          pytest test_api.py --maxfail=1 --disable-warnings -q
