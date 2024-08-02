@@ -76,3 +76,31 @@ def test_contact():
     response = requests.post(url, json=data)
     assert response.status_code == 200
     assert response.json().get("message") == "Message sent successfully"
+
+    def test_payment():
+     url = f"{BASE_URL}/payment"
+    data = {
+        "order_id": 1,
+        "payment_method": "credit_card",
+        "amount": 100
+    }
+    response = requests.post(url, json=data)
+    assert response.status_code == 200
+    assert response.json().get("message") == "Payment successful"
+
+def test_review_add():
+    url = f"{BASE_URL}/review"
+    data = {
+        "product_id": 1,
+        "rating": 5,
+        "review": "Great product!"
+    }
+    response = requests.post(url, json=data)
+    assert response.status_code == 201
+    assert response.json().get("message") == "Review added"
+
+    def test_review_view():
+        url = f"{BASE_URL}/review/1"  
+    response = requests.get(url)
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
