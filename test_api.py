@@ -44,3 +44,18 @@ def test_cart_add():
     response = requests.post(url, json=data)
     assert response.status_code == 200
     assert response.json().get("message") == "Product added to cart"
+
+def test_cart_view():
+    url = f"{BASE_URL}/cart"
+    response = requests.get(url)
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
+
+def test_wishlist_add():
+    url = f"{BASE_URL}/wishlist/add"
+    data = {
+        "product_id": 1
+    }
+    response = requests.post(url, json=data)
+    assert response.status_code == 200
+    assert response.json().get("message") == "Product added to wishlist"
