@@ -14,7 +14,7 @@ consumer_secret = 'asJhwuTM0XXBWyTJwCWgPWITuucxPoDkNiQWfeTQGgjGraLyl5KO6Ay93sxrS
 shortcode = '174379'
 lipa_na_mpesa_online_passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
 callback_url = 'https://your_callback_url.com/callback'
-fixed_phone_number = '0702524433'
+fixed_phone_number = '0115743312'
 
 def get_access_token():
     api_url = 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials'
