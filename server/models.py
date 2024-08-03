@@ -9,7 +9,7 @@ class User(db.Model, SerializerMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(20), nullable=False)
-    password = db.Column(db.String(12), nullable=False)
+    password = db.Column(db.String(20), nullable=False)
     email = db.Column(db.String(50), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
@@ -69,7 +69,7 @@ class Review(db.Model, SerializerMixin):
     serialize_only = ('id', 'product_id', 'user_id', 'created_at')
 
     def __repr__(self):
-        return f'<Review {self.id}, Product ID: {self.product_id}, User ID: {self.user_id},{self.created_at}>'
+        return f'<Review {self.id}, Product ID: {self.product_id}, User ID: {self.user_id}, {self.created_at}>'
     
 
 class Wishlist(db.Model, SerializerMixin):
