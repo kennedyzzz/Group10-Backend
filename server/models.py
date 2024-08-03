@@ -103,13 +103,13 @@ class Payment(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     cart_id = db.Column(db.Integer, db.ForeignKey('cart.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    mpesa = db.Column(db.String)
+    mpesa_transaction_id = db.Column(db.String, primary_key=True, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     serialize_only = ('id', 'cart_id', 'user_id', 'mpesa', 'created_at')
 
     def __repr__(self):
-        return f'<Payment {self.id}, Cart ID: {self.cart_id}, User ID: {self.user_id}, MPESA: {self.mpesa}, Created At: {self.created_at}>'
+        return f'<Payment {self.id}, Cart ID: {self.cart_id}, User ID: {self.user_id}, MPESA: {self.mpesa_transaction_id}, Created At: {self.created_at}>'
     
 
 class CartItems(db.Model, SerializerMixin):

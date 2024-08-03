@@ -1,340 +1,214 @@
-from flask import Flask
-from flask_restful import Api, Resource, reqparse, fields, marshal_with
+from flask import Flask, request
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
-from models import User, Catalog, Product, Review, Wishlist, Cart, Payment, CartItems
+from flask_restful import Api, Resource
+from models import db, User, Catalog, Product, Review, Wishlist, Cart, Payment, CartItems
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///Zuri Trends.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+
+db.init_app(app)
 api = Api(app)
 
+# User Resource
 class UserResource(Resource):
-    resource_fields = {
-        'id': fields.Integer,
-        'name': fields.String,
-        'email': fields.String,
-        'created_at': fields.DateTime
-    }
-    
-    parser = reqparse.RequestParser()
-    parser.add_argument('name', type=str, required=True, help="Name cannot be blank!")
-    parser.add_argument('password', type=str, required=True, help="Password cannot be blank!")
-    parser.add_argument('email', type=str, required=True, help="Email cannot be blank!")
-    
-    @marshal_with(resource_fields)
-    def get(self, user_id):
-        user = User.query.get_or_404(user_id)
-        return user
-    
-    @marshal_with(resource_fields)
+    def get(self, user_id=None):
+        if user_id is None:
+            users = User.query.all()
+            return [user.to_dict() for user in users], 200
+        else:
+            user = User.query.get(user_id)
+            if user:
+                return user.to_dict(), 200
+            return {'error': 'User not found'}, 404
+
     def post(self):
-        args = self.parser.parse_args()
-        new_user = User(name=args['name'], password=args['password'], email=args['email'])
+        data = request.json
+        new_user = User(name=data['name'], password=data['password'], email=data['email'])
         db.session.add(new_user)
         db.session.commit()
-        return new_user, 201
-    
-    @marshal_with(resource_fields)
-    def put(self, user_id):
-        args = self.parser.parse_args()
-        user = User.query.get_or_404(user_id)
-        user.name = args['name']
-        user.password = args['password']
-        user.email = args['email']
-        db.session.commit()
-        return user
-    
-    def delete(self, user_id):
-        user = User.query.get_or_404(user_id)
-        db.session.delete(user)
-        db.session.commit()
-        return '', 204
+        return new_user.to_dict(), 201
 
+# Catalog Resource
 class CatalogResource(Resource):
-    resource_fields = {
-        'id': fields.Integer,
-        'name': fields.String,
-    }
+    def get(self, catalog_id=None):
+        if catalog_id is None:
+            catalogs = Catalog.query.all()
+            return [catalog.to_dict() for catalog in catalogs], 200
+        else:
+            catalog = Catalog.query.get(catalog_id)
+            if catalog:
+                return catalog.to_dict(), 200
+            return {'error': 'Catalog not found'}, 404
 
-    parser = reqparse.RequestParser()
-    parser.add_argument('name', type=str, required=True, help="Name cannot be blank!")
-    
-    @marshal_with(resource_fields)
-    def get(self, catalog_id):
-        catalog = Catalog.query.get_or_404(catalog_id)
-        return catalog
-    
-    @marshal_with(resource_fields)
     def post(self):
-        args = self.parser.parse_args()
-        new_catalog = Catalog(name=args['name'])
+        data = request.json
+        new_catalog = Catalog(name=data['name'])
         db.session.add(new_catalog)
         db.session.commit()
-        return new_catalog, 201
-    
-    @marshal_with(resource_fields)
-    def put(self, catalog_id):
-        args = self.parser.parse_args()
-        catalog = Catalog.query.get_or_404(catalog_id)
-        catalog.name = args['name']
-        db.session.commit()
-        return catalog
-    
-    def delete(self, catalog_id):
-        catalog = Catalog.query.get_or_404(catalog_id)
-        db.session.delete(catalog)
-        db.session.commit()
-        return '', 204
+        return new_catalog.to_dict(), 201
 
+
+# Product Resource
 class ProductResource(Resource):
-    resource_fields = {
-        'id': fields.Integer,
-        'name': fields.String,
-        'price': fields.Integer,
-        'image': fields.String,
-        'quantity': fields.Integer,
-        'catalog_id': fields.Integer,
-    }
+    def get(self, product_id=None):
+        if product_id is None:
+            products = Product.query.all()
+            return [product.to_dict() for product in products], 200
+        else:
+            product = Product.query.get(product_id)
+            if product:
+                return product.to_dict(), 200
+            return {'error': 'Product not found'}, 404
 
-    parser = reqparse.RequestParser()
-    parser.add_argument('name', type=str, required=True, help="Name cannot be blank!")
-    parser.add_argument('price', type=int, required=True, help="Price cannot be blank!")
-    parser.add_argument('image', type=str, required=True, help="Image cannot be blank!")
-    parser.add_argument('quantity', type=int, required=True, help="Quantity cannot be blank!")
-    parser.add_argument('catalog_id', type=int, required=True, help="Catalog ID cannot be blank!")
-    
-    @marshal_with(resource_fields)
-    def get(self, product_id):
-        product = Product.query.get_or_404(product_id)
-        return product
-    
-    @marshal_with(resource_fields)
     def post(self):
-        args = self.parser.parse_args()
-        new_product = Product(name=args['name'], price=args['price'], image=args['image'], quantity=args['quantity'], catalog_id=args['catalog_id'])
+        data = request.json
+        new_product = Product(
+            name=data['name'],
+            price=data['price'],
+            image=data['image'],
+            quantity=data['quantity'],
+            catalog_id=data.get('catalog_id')
+        )
         db.session.add(new_product)
         db.session.commit()
-        return new_product, 201
-    
-    @marshal_with(resource_fields)
-    def put(self, product_id):
-        args = self.parser.parse_args()
-        product = Product.query.get_or_404(product_id)
-        product.name = args['name']
-        product.price = args['price']
-        product.image = args['image']
-        product.quantity = args['quantity']
-        product.catalog_id = args['catalog_id']
-        db.session.commit()
-        return product
-    
-    def delete(self, product_id):
-        product = Product.query.get_or_404(product_id)
-        db.session.delete(product)
-        db.session.commit()
-        return '', 204
+        return new_product.to_dict(), 201
 
+# Review Resource
 class ReviewResource(Resource):
-    resource_fields = {
-        'id': fields.Integer,
-        'product_id': fields.Integer,
-        'user_id': fields.Integer,
-        'created_at': fields.DateTime
-    }
+    def get(self, review_id=None):
+        if review_id is None:
+            reviews = Review.query.all()
+            return [review.to_dict() for review in reviews], 200
+        else:
+            review = Review.query.get(review_id)
+            if review:
+                return review.to_dict(), 200
+            return {'error': 'Review not found'}, 404
 
-    parser = reqparse.RequestParser()
-    parser.add_argument('product_id', type=int, required=True, help="Product ID cannot be blank!")
-    parser.add_argument('user_id', type=int, required=True, help="User ID cannot be blank!")
-    
-    @marshal_with(resource_fields)
-    def get(self, review_id):
-        review = Review.query.get_or_404(review_id)
-        return review
-    
-    @marshal_with(resource_fields)
     def post(self):
-        args = self.parser.parse_args()
-        new_review = Review(product_id=args['product_id'], user_id=args['user_id'])
+        data = request.json
+        new_review = Review(
+            product_id=data['product_id'],
+            user_id=data['user_id']
+        )
         db.session.add(new_review)
         db.session.commit()
-        return new_review, 201
-    
-    @marshal_with(resource_fields)
-    def put(self, review_id):
-        args = self.parser.parse_args()
-        review = Review.query.get_or_404(review_id)
-        review.product_id = args['product_id']
-        review.user_id = args['user_id']
-        db.session.commit()
-        return review
-    
-    def delete(self, review_id):
-        review = Review.query.get_or_404(review_id)
-        db.session.delete(review)
-        db.session.commit()
-        return '', 204
+        return new_review.to_dict(), 201
 
+
+# Wishlist Resource
 class WishlistResource(Resource):
-    resource_fields = {
-        'id': fields.Integer,
-        'product_id': fields.Integer,
-    }
+    def get(self, wishlist_id=None):
+        if wishlist_id is None:
+            wishlists = Wishlist.query.all()
+            return [wishlist.to_dict() for wishlist in wishlists], 200
+        else:
+            wishlist = Wishlist.query.get(wishlist_id)
+            if wishlist:
+                return wishlist.to_dict(), 200
+            return {'error': 'Wishlist not found'}, 404
 
-    parser = reqparse.RequestParser()
-    parser.add_argument('product_id', type=int, required=True, help="Product ID cannot be blank!")
-    
-    @marshal_with(resource_fields)
-    def get(self, wishlist_id):
-        wishlist = Wishlist.query.get_or_404(wishlist_id)
-        return wishlist
-    
-    @marshal_with(resource_fields)
     def post(self):
-        args = self.parser.parse_args()
-        new_wishlist = Wishlist(product_id=args['product_id'])
+        data = request.json
+        new_wishlist = Wishlist(product_id=data['product_id'])
         db.session.add(new_wishlist)
         db.session.commit()
-        return new_wishlist, 201
-    
-    @marshal_with(resource_fields)
-    def put(self, wishlist_id):
-        args = self.parser.parse_args()
-        wishlist = Wishlist.query.get_or_404(wishlist_id)
-        wishlist.product_id = args['product_id']
-        db.session.commit()
-        return wishlist
-    
-    def delete(self, wishlist_id):
-        wishlist = Wishlist.query.get_or_404(wishlist_id)
-        db.session.delete(wishlist)
-        db.session.commit()
-        return '', 204
+        return new_wishlist.to_dict(), 201
 
+# Cart Resource
 class CartResource(Resource):
-    resource_fields = {
-        'id': fields.Integer,
-        'user_id': fields.Integer,
-        'product_id': fields.Integer,
-    }
+    def get(self, cart_id=None):
+        if cart_id is None:
+            carts = Cart.query.all()
+            return [cart.to_dict() for cart in carts], 200
+        else:
+            cart = Cart.query.get(cart_id)
+            if cart:
+                return cart.to_dict(), 200
+            return {'error': 'Cart not found'}, 404
 
-    parser = reqparse.RequestParser()
-    parser.add_argument('user_id', type=int, required=True, help="User ID cannot be blank!")
-    parser.add_argument('product_id', type=int, required=True, help="Product ID cannot be blank!")
-    
-    @marshal_with(resource_fields)
-    def get(self, cart_id):
-        cart = Cart.query.get_or_404(cart_id)
-        return cart
-    
-    @marshal_with(resource_fields)
     def post(self):
-        args = self.parser.parse_args()
-        new_cart = Cart(user_id=args['user_id'], product_id=args['product_id'])
+        data = request.json
+        new_cart = Cart(user_id=data['user_id'], product_id=data['product_id'])
         db.session.add(new_cart)
         db.session.commit()
-        return new_cart, 201
-    
-    @marshal_with(resource_fields)
-    def put(self, cart_id):
-        args = self.parser.parse_args()
-        cart = Cart.query.get_or_404(cart_id)
-        cart.user_id = args['user_id']
-        cart.product_id = args['product_id']
-        db.session.commit()
-        return cart
-    
+        return new_cart.to_dict(), 201
+
     def delete(self, cart_id):
-        cart = Cart.query.get_or_404(cart_id)
+        cart = Cart.query.get(cart_id)
+        if not cart:
+            return {'error': 'Cart not found'}, 404
+
         db.session.delete(cart)
         db.session.commit()
-        return '', 204
+        return {'message': 'Cart deleted'}, 204
 
+# Payment Resource
 class PaymentResource(Resource):
-    resource_fields = {
-        'id': fields.Integer,
-        'cart_id': fields.Integer,
-        'user_id': fields.Integer,
-        'mpesa': fields.String,
-        'created_at': fields.DateTime,
-    }
+    def get(self, payment_id=None):
+        if payment_id is None:
+            payments = Payment.query.all()
+            return [payment.to_dict() for payment in payments], 200
+        else:
+            payment = Payment.query.get(payment_id)
+            if payment:
+                return payment.to_dict(), 200
+            return {'error': 'Payment not found'}, 404
 
-    parser = reqparse.RequestParser()
-    parser.add_argument('cart_id', type=int, required=True, help="Cart ID cannot be blank!")
-    parser.add_argument('user_id', type=int, required=True, help="User ID cannot be blank!")
-    parser.add_argument('mpesa', type=str)
-    
-    @marshal_with(resource_fields)
-    def get(self, payment_id):
-        payment = Payment.query.get_or_404(payment_id)
-        return payment
-    
-    @marshal_with(resource_fields)
     def post(self):
-        args = self.parser.parse_args()
-        new_payment = Payment(cart_id=args['cart_id'], user_id=args['user_id'], mpesa=args['mpesa'])
+        data = request.json
+        new_payment = Payment(
+            cart_id=data['cart_id'],
+            user_id=data['user_id'],
+            mpesa_transaction_id=data.get('mpesa')
+        )
         db.session.add(new_payment)
         db.session.commit()
-        return new_payment, 201
-    
-    @marshal_with(resource_fields)
-    def put(self, payment_id):
-        args = self.parser.parse_args()
-        payment = Payment.query.get_or_404(payment_id)
-        payment.cart_id = args['cart_id']
-        payment.user_id = args['user_id']
-        payment.mpesa = args['mpesa']
-        db.session.commit()
-        return payment
-    
+        return new_payment.to_dict(), 201
+
     def delete(self, payment_id):
-        payment = Payment.query.get_or_404(payment_id)
+        payment = Payment.query.get(payment_id)
+        if not payment:
+            return {'error': 'Payment not found'}, 404
+
         db.session.delete(payment)
         db.session.commit()
-        return '', 204
+        return {'message': 'Payment deleted'}, 204
 
+# CartItems Resource
 class CartItemsResource(Resource):
-    resource_fields = {
-        'id': fields.Integer,
-        'products_id': fields.Integer,
-        'quantity': fields.Integer,
-        'list_price': fields.Integer,
-        'cart_id': fields.Integer,
-    }
+    def get(self, cart_item_id=None):
+        if cart_item_id is None:
+            cart_items = CartItems.query.all()
+            return [cart_item.to_dict() for cart_item in cart_items], 200
+        else:
+            cart_item = CartItems.query.get(cart_item_id)
+            if cart_item:
+                return cart_item.to_dict(), 200
+            return {'error': 'Cart Item not found'}, 404
 
-    parser = reqparse.RequestParser()
-    parser.add_argument('products_id', type=int, required=True, help="Product ID cannot be blank!")
-    parser.add_argument('quantity', type=int, required=True, help="Quantity cannot be blank!")
-    parser.add_argument('list_price', type=int, required=True, help="List Price cannot be blank!")
-    parser.add_argument('cart_id', type=int, required=True, help="Cart ID cannot be blank!")
-    
-    @marshal_with(resource_fields)
-    def get(self, cart_item_id):
-        cart_item = CartItems.query.get_or_404(cart_item_id)
-        return cart_item
-    
-    @marshal_with(resource_fields)
     def post(self):
-        args = self.parser.parse_args()
-        new_cart_item = CartItems(products_id=args['products_id'], quantity=args['quantity'], list_price=args['list_price'], cart_id=args['cart_id'])
+        data = request.json
+        new_cart_item = CartItems(
+            products_id=data['products_id'],
+            quantity=data['quantity'],
+            list_price=data['list_price'],
+            cart_id=data['cart_id']
+        )
         db.session.add(new_cart_item)
         db.session.commit()
-        return new_cart_item, 201
-    
-    @marshal_with(resource_fields)
-    def put(self, cart_item_id):
-        args = self.parser.parse_args()
-        cart_item = CartItems.query.get_or_404(cart_item_id)
-        cart_item.products_id = args['products_id']
-        cart_item.quantity = args['quantity']
-        cart_item.list_price = args['list_price']
-        cart_item.cart_id = args['cart_id']
-        db.session.commit()
-        return cart_item
-    
-    def delete(self, cart_item_id):
-        cart_item = CartItems.query.get_or_404(cart_item_id)
-        db.session.delete(cart_item)
-        db.session.commit()
-        return '', 204
+        return new_cart_item.to_dict(), 201
+
+
+api.add_resource(UserResource, '/users', '/users/<int:user_id>')
+api.add_resource(CatalogResource, '/catalogs', '/catalogs/<int:catalog_id>')
+api.add_resource(ProductResource, '/products', '/products/<int:product_id>')
+api.add_resource(ReviewResource, '/reviews', '/reviews/<int:review_id>')
+api.add_resource(WishlistResource, '/wishlists', '/wishlists/<int:wishlist_id>')
+api.add_resource(CartResource, '/carts', '/carts/<int:cart_id>')
+api.add_resource(PaymentResource, '/payments', '/payments/<int:payment_id>')
+api.add_resource(CartItemsResource, '/cart_items', '/cart_items/<int:cart_item_id>')
+
+if __name__ == '__main__':
+    app.run(debug=True)
