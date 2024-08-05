@@ -291,7 +291,7 @@ def delete_cart(id):
     return '', 204
 
 # CartItem CRUD
-@views.route('/cart_items', methods=['POST'])
+@views.route('/cartitems', methods=['POST'])
 def create_cart_item():
     data = request.get_json()
     cart_item, errors = cart_item_schema.load(data)
@@ -301,17 +301,17 @@ def create_cart_item():
     db.session.commit()
     return cart_item_schema.jsonify(cart_item), 201
 
-@views.route('/cart_items', methods=['GET'])
+@views.route('/cartitems', methods=['GET'])
 def get_cart_items():
     cart_items = CartItem.query.all()
     return cart_item_schema.jsonify(cart_items, many=True), 200
 
-@views.route('/cart_items/<int:id>', methods=['GET'])
+@views.route('/cartitems/<int:id>', methods=['GET'])
 def get_cart_item(id):
     cart_item = CartItem.query.get_or_404(id)
     return cart_item_schema.jsonify(cart_item), 200
 
-@views.route('/cart_items/<int:id>', methods=['PUT'])
+@views.route('/cartitems/<int:id>', methods=['PUT'])
 def update_cart_item(id):
     cart_item = CartItem.query.get_or_404(id)
     data = request.get_json()
@@ -321,7 +321,7 @@ def update_cart_item(id):
     db.session.commit()
     return cart_item_schema.jsonify(updated_cart_item), 200
 
-@views.route('/cart_items/<int:id>', methods=['DELETE'])
+@views.route('/cartitems/<int:id>', methods=['DELETE'])
 def delete_cart_item(id):
     cart_item = CartItem.query.get_or_404(id)
     db.session.delete(cart_item)
@@ -366,25 +366,31 @@ def delete_payment(id):
     db.session.commit()
     return '', 204
 
-# Image Upload
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
-
-@views.route('/upload_image', methods=['POST'])
-def upload_image():
+# File upload
+@views.route('/upload', methods=['POST'])
+def upload_file():
     if 'file' not in request.files:
         return jsonify({'message': 'No file part'}), 400
-
     file = request.files['file']
-
     if file.filename == '':
         return jsonify({'message': 'No selected file'}), 400
-
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
-        file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
-        return jsonify({'message': 'File uploaded successfully', 'file_path': file_path}), 200
+        file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
+        return jsonify({'message': 'File uploaded successfully'}), 201
+    return jsonify({'message': 'File type not allowed'}), 400
 
-    return jsonify({'message': 'Invalid file type'}), 400
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
+
+@views.route('/mpesa_payment', methods=['POST'])
+def mpesa_payment():
+    data = request.get_json()
+    amount = data.get('amount')
+    phone_number = data.get('phone_number')
+
+    if not amount or not phone_number:
+        return jsonify({'message': 'Amount and phone number are required'}), 400
+
+    response = lipa_na_mpesa_online(amount, phone_number)
+    return jsonify(response), 200
