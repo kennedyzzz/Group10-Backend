@@ -14,11 +14,12 @@ import base64
 app = Flask(__name__)
 CORS(app)
 
+# Configuration for M-Pesa
 consumer_key = 'yty83hjgw0EEGrxoV9j3AAQxVJL2hmjcvYMPxsjXH2ghL8AF'
 consumer_secret = 'asJhwuTM0XXBWyTJwCWgPWITuucxPoDkNiQWfeTQGgjGraLyl5KO6Ay93sxrSwIm'
 shortcode = '174379'
 lipa_na_mpesa_online_passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
-callback_url = 'https://your_callback_url.com/callback'
+callback_url = 'https://mydomain.com/path'
 fixed_phone_number = '0115743312'
 
 def get_access_token():
@@ -52,6 +53,16 @@ def lipa_na_mpesa_online(amount, phone_number):
 
     response = requests.post(api_url, json=payload, headers=headers)
     return response.json()
+
+# Initialize schemas
+product_schema = ProductSchema()
+catalog_schema = CatalogSchema()
+user_schema = UserSchema()
+review_schema = ReviewSchema()
+wishlist_schema = WishlistSchema()
+cart_schema = CartSchema()
+cart_item_schema = CartItemSchema()
+payment_schema = PaymentSchema()
 
 # Catalog CRUD
 @app.route('/catalogs', methods=['POST'])
@@ -282,7 +293,7 @@ def delete_cart(id):
     return '', 204
 
 # CartItem CRUD
-@app.route('/cart_items', methods=['POST'])
+@app.route('/cart-items', methods=['POST'])
 def create_cart_item():
     data = request.get_json()
     cart_item, errors = cart_item_schema.load(data)
@@ -292,17 +303,17 @@ def create_cart_item():
     db.session.commit()
     return cart_item_schema.jsonify(cart_item), 201
 
-@app.route('/cart_items', methods=['GET'])
+@app.route('/cart-items', methods=['GET'])
 def get_cart_items():
     cart_items = CartItem.query.all()
     return cart_item_schema.jsonify(cart_items, many=True), 200
 
-@app.route('/cart_items/<int:id>', methods=['GET'])
+@app.route('/cart-items/<int:id>', methods=['GET'])
 def get_cart_item(id):
     cart_item = CartItem.query.get_or_404(id)
     return cart_item_schema.jsonify(cart_item), 200
 
-@app.route('/cart_items/<int:id>', methods=['PUT'])
+@app.route('/cart-items/<int:id>', methods=['PUT'])
 def update_cart_item(id):
     cart_item = CartItem.query.get_or_404(id)
     data = request.get_json()
@@ -312,7 +323,7 @@ def update_cart_item(id):
     db.session.commit()
     return cart_item_schema.jsonify(updated_cart_item), 200
 
-@app.route('/cart_items/<int:id>', methods=['DELETE'])
+@app.route('/cart-items/<int:id>', methods=['DELETE'])
 def delete_cart_item(id):
     cart_item = CartItem.query.get_or_404(id)
     db.session.delete(cart_item)
@@ -323,22 +334,12 @@ def delete_cart_item(id):
 @app.route('/payments', methods=['POST'])
 def create_payment():
     data = request.get_json()
-    cart_id = data.get('cart_id')
-    user_id = data.get('user_id')
-    amount = data.get('amount')
-    phone_number = data.get('phone_number')
-
-    # Call M-Pesa API
-    mpesa_response = lipa_na_mpesa_online(amount, phone_number)
-
-    if mpesa_response['ResponseCode'] == '0':
-        # Payment was successful
-        payment = Payment(cart_id=cart_id, user_id=user_id, mpesa_transaction_id=mpesa_response['CheckoutRequestID'], amount=amount)
-        db.session.add(payment)
-        db.session.commit()
-        return payment_schema.jsonify(payment), 201
-    else:
-        return jsonify(mpesa_response), 400
+    payment, errors = payment_schema.load(data)
+    if errors:
+        return jsonify(errors), 400
+    db.session.add(payment)
+    db.session.commit()
+    return payment_schema.jsonify(payment), 201
 
 @app.route('/payments', methods=['GET'])
 def get_payments():
@@ -367,12 +368,16 @@ def delete_payment(id):
     db.session.commit()
     return '', 204
 
-# M-Pesa callback route
-@app.route('/callback', methods=['POST'])
-def mpesa_callback():
-    mpesa_response = request.get_json()
-    print(mpesa_response)  # Handle the response from M-Pesa
-    return jsonify({"ResultCode": 0, "ResultDesc": "Accepted"}), 200
+# M-Pesa Payment Route
+@app.route('/mpesa/payment', methods=['POST'])
+def mpesa_payment():
+    data = request.get_json()
+    amount = data.get('amount')
+    phone_number = data.get('phone_number')
+    if not amount or not phone_number:
+        return jsonify({"error": "Amount and phone number are required"}), 400
+    response = lipa_na_mpesa_online(amount, phone_number)
+    return jsonify(response), 200
 
 if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+    app.run(debug=True)

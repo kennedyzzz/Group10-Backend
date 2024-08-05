@@ -10,6 +10,7 @@ class ProductSchema(ma.SQLAlchemyAutoSchema):
 class CatalogSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Catalog
+        include_fk = True
 
 class UserSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
@@ -39,3 +40,5 @@ class PaymentSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Payment
         include_fk = True
+
+ma = Marshmallow()
