@@ -6,10 +6,14 @@ from datetime import datetime
 import requests
 from requests.auth import HTTPBasicAuth
 import base64
+import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///zuri_trends.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['UPLOAD_FOLDER'] = 'uploads/' 
+app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}  
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
 CORS(app)
@@ -53,6 +57,30 @@ def lipa_na_mpesa_online(amount, phone_number):
     response = requests.post(api_url, json=payload, headers=headers)
     return response.json()
 
+def allowed_file(filename):
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+
+@app.route('/upload_image', methods=['POST'])
+def upload_image():
+    if 'file' not in request.files:
+        return jsonify({'message': 'No file part'}), 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify({'message': 'No selected file'}), 400
+
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+        return jsonify({'message': 'File uploaded successfully', 'file_path': file_path}), 200
+
+    return jsonify({'message': 'Invalid file type'}), 400
+
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    os.makedirs(app.config['UPLOAD_FOLDER'])
 
 from app import views
 

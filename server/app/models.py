@@ -5,7 +5,7 @@ class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     price = db.Column(db.Integer, nullable=False)
-    image = db.Column(db.String(200), nullable=False)
+    image_path = db.Column(db.String(200), nullable=False)  
     quantity = db.Column(db.Integer, nullable=False)
     catalog_id = db.Column(db.Integer, db.ForeignKey('catalog.id'), nullable=True)
     size = db.Column(db.String(50))
@@ -57,6 +57,7 @@ class Payment(db.Model):
     amount = db.Column(db.Integer, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+# Schemas
 class ProductSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Product
