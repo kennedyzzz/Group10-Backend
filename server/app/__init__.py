@@ -1,14 +1,18 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_marshmallow import Marshmallow
-import os
+from .config import Config
 
-app = Flask(__name__)
+def create_app():
+    app = Flask(__name__)
+    
+    app.config.from_object(Config)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///zuri_trends.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    from .models import db, ma
+    db.init_app(app)
+    ma.init_app(app)
 
-db = SQLAlchemy(app)
-ma = Marshmallow(app)
+    from .views import main
+    app.register_blueprint(main)
 
-from app import models, views
+    return app
+
+app = create_app()

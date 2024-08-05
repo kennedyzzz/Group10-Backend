@@ -1,58 +1,21 @@
-from flask import Flask, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_cors import CORS
+import requests
+from requests.auth import HTTPBasicAuth
+import base64
+from datetime import datetime
+from werkzeug.utils import secure_filename
+import os
+
 from app import db
 from app.models import Product, Catalog, User, Review, Wishlist, Cart, CartItem, Payment
 from app.schemas import (
     ProductSchema, CatalogSchema, UserSchema, ReviewSchema, WishlistSchema,
     CartSchema, CartItemSchema, PaymentSchema
 )
-import requests
-from requests.auth import HTTPBasicAuth
-from datetime import datetime
-import base64
 
-app = Flask(__name__)
-CORS(app)
-
-# Configuration for M-Pesa
-consumer_key = 'yty83hjgw0EEGrxoV9j3AAQxVJL2hmjcvYMPxsjXH2ghL8AF'
-consumer_secret = 'asJhwuTM0XXBWyTJwCWgPWITuucxPoDkNiQWfeTQGgjGraLyl5KO6Ay93sxrSwIm'
-shortcode = '174379'
-lipa_na_mpesa_online_passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
-callback_url = 'https://mydomain.com/path'
-fixed_phone_number = '0115743312'
-
-def get_access_token():
-    api_url = 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials'
-    response = requests.get(api_url, auth=HTTPBasicAuth(consumer_key, consumer_secret))
-    return response.json()['access_token']
-
-def lipa_na_mpesa_online(amount, phone_number):
-    access_token = get_access_token()
-    api_url = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
-    headers = {'Authorization': f'Bearer {access_token}'}
-
-    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-    data_to_encode = shortcode + lipa_na_mpesa_online_passkey + timestamp
-    encoded_string = base64.b64encode(data_to_encode.encode())
-    password = encoded_string.decode('utf-8')
-
-    payload = {
-        "BusinessShortCode": shortcode,
-        "Password": password,
-        "Timestamp": timestamp,
-        "TransactionType": "CustomerPayBillOnline",
-        "Amount": amount,
-        "PartyA": phone_number,
-        "PartyB": shortcode,
-        "PhoneNumber": phone_number,
-        "CallBackURL": callback_url,
-        "AccountReference": "Test123",
-        "TransactionDesc": "Payment for goods"
-    }
-
-    response = requests.post(api_url, json=payload, headers=headers)
-    return response.json()
+views = Blueprint('views', __name__)
+CORS(views)
 
 # Initialize schemas
 product_schema = ProductSchema()
@@ -64,8 +27,42 @@ cart_schema = CartSchema()
 cart_item_schema = CartItemSchema()
 payment_schema = PaymentSchema()
 
+def get_access_token():
+    api_url = 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials'
+    response = requests.get(api_url, auth=HTTPBasicAuth(
+        current_app.config['CONSUMER_KEY'], current_app.config['CONSUMER_SECRET']
+    ))
+    return response.json()['access_token']
+
+def lipa_na_mpesa_online(amount, phone_number):
+    access_token = get_access_token()
+    api_url = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
+    headers = {'Authorization': f'Bearer {access_token}'}
+
+    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+    data_to_encode = current_app.config['SHORTCODE'] + current_app.config['LIPA_NA_MPESA_ONLINE_PASSKEY'] + timestamp
+    encoded_string = base64.b64encode(data_to_encode.encode())
+    password = encoded_string.decode('utf-8')
+
+    payload = {
+        "BusinessShortCode": current_app.config['SHORTCODE'],
+        "Password": password,
+        "Timestamp": timestamp,
+        "TransactionType": "CustomerPayBillOnline",
+        "Amount": amount,
+        "PartyA": phone_number,
+        "PartyB": current_app.config['SHORTCODE'],
+        "PhoneNumber": phone_number,
+        "CallBackURL": current_app.config['CALLBACK_URL'],
+        "AccountReference": "Test123",
+        "TransactionDesc": "Payment for goods"
+    }
+
+    response = requests.post(api_url, json=payload, headers=headers)
+    return response.json()
+
 # Catalog CRUD
-@app.route('/catalogs', methods=['POST'])
+@views.route('/catalogs', methods=['POST'])
 def create_catalog():
     data = request.get_json()
     catalog, errors = catalog_schema.load(data)
@@ -75,17 +72,17 @@ def create_catalog():
     db.session.commit()
     return catalog_schema.jsonify(catalog), 201
 
-@app.route('/catalogs', methods=['GET'])
+@views.route('/catalogs', methods=['GET'])
 def get_catalogs():
     catalogs = Catalog.query.all()
     return catalog_schema.jsonify(catalogs, many=True), 200
 
-@app.route('/catalogs/<int:id>', methods=['GET'])
+@views.route('/catalogs/<int:id>', methods=['GET'])
 def get_catalog(id):
     catalog = Catalog.query.get_or_404(id)
     return catalog_schema.jsonify(catalog), 200
 
-@app.route('/catalogs/<int:id>', methods=['PUT'])
+@views.route('/catalogs/<int:id>', methods=['PUT'])
 def update_catalog(id):
     catalog = Catalog.query.get_or_404(id)
     data = request.get_json()
@@ -95,7 +92,7 @@ def update_catalog(id):
     db.session.commit()
     return catalog_schema.jsonify(updated_catalog), 200
 
-@app.route('/catalogs/<int:id>', methods=['DELETE'])
+@views.route('/catalogs/<int:id>', methods=['DELETE'])
 def delete_catalog(id):
     catalog = Catalog.query.get_or_404(id)
     db.session.delete(catalog)
@@ -103,7 +100,7 @@ def delete_catalog(id):
     return '', 204
 
 # Product CRUD
-@app.route('/products', methods=['POST'])
+@views.route('/products', methods=['POST'])
 def create_product():
     data = request.get_json()
     product, errors = product_schema.load(data)
@@ -113,17 +110,17 @@ def create_product():
     db.session.commit()
     return product_schema.jsonify(product), 201
 
-@app.route('/products', methods=['GET'])
+@views.route('/products', methods=['GET'])
 def get_products():
     products = Product.query.all()
     return product_schema.jsonify(products, many=True), 200
 
-@app.route('/products/<int:id>', methods=['GET'])
+@views.route('/products/<int:id>', methods=['GET'])
 def get_product(id):
     product = Product.query.get_or_404(id)
     return product_schema.jsonify(product), 200
 
-@app.route('/products/<int:id>', methods=['PUT'])
+@views.route('/products/<int:id>', methods=['PUT'])
 def update_product(id):
     product = Product.query.get_or_404(id)
     data = request.get_json()
@@ -133,7 +130,7 @@ def update_product(id):
     db.session.commit()
     return product_schema.jsonify(updated_product), 200
 
-@app.route('/products/<int:id>', methods=['DELETE'])
+@views.route('/products/<int:id>', methods=['DELETE'])
 def delete_product(id):
     product = Product.query.get_or_404(id)
     db.session.delete(product)
@@ -141,7 +138,7 @@ def delete_product(id):
     return '', 204
 
 # User CRUD
-@app.route('/users', methods=['POST'])
+@views.route('/users', methods=['POST'])
 def create_user():
     data = request.get_json()
     user, errors = user_schema.load(data)
@@ -151,17 +148,17 @@ def create_user():
     db.session.commit()
     return user_schema.jsonify(user), 201
 
-@app.route('/users', methods=['GET'])
+@views.route('/users', methods=['GET'])
 def get_users():
     users = User.query.all()
     return user_schema.jsonify(users, many=True), 200
 
-@app.route('/users/<int:id>', methods=['GET'])
+@views.route('/users/<int:id>', methods=['GET'])
 def get_user(id):
     user = User.query.get_or_404(id)
     return user_schema.jsonify(user), 200
 
-@app.route('/users/<int:id>', methods=['PUT'])
+@views.route('/users/<int:id>', methods=['PUT'])
 def update_user(id):
     user = User.query.get_or_404(id)
     data = request.get_json()
@@ -171,7 +168,7 @@ def update_user(id):
     db.session.commit()
     return user_schema.jsonify(updated_user), 200
 
-@app.route('/users/<int:id>', methods=['DELETE'])
+@views.route('/users/<int:id>', methods=['DELETE'])
 def delete_user(id):
     user = User.query.get_or_404(id)
     db.session.delete(user)
@@ -179,7 +176,7 @@ def delete_user(id):
     return '', 204
 
 # Review CRUD
-@app.route('/reviews', methods=['POST'])
+@views.route('/reviews', methods=['POST'])
 def create_review():
     data = request.get_json()
     review, errors = review_schema.load(data)
@@ -189,17 +186,17 @@ def create_review():
     db.session.commit()
     return review_schema.jsonify(review), 201
 
-@app.route('/reviews', methods=['GET'])
+@views.route('/reviews', methods=['GET'])
 def get_reviews():
     reviews = Review.query.all()
     return review_schema.jsonify(reviews, many=True), 200
 
-@app.route('/reviews/<int:id>', methods=['GET'])
+@views.route('/reviews/<int:id>', methods=['GET'])
 def get_review(id):
     review = Review.query.get_or_404(id)
     return review_schema.jsonify(review), 200
 
-@app.route('/reviews/<int:id>', methods=['PUT'])
+@views.route('/reviews/<int:id>', methods=['PUT'])
 def update_review(id):
     review = Review.query.get_or_404(id)
     data = request.get_json()
@@ -209,7 +206,7 @@ def update_review(id):
     db.session.commit()
     return review_schema.jsonify(updated_review), 200
 
-@app.route('/reviews/<int:id>', methods=['DELETE'])
+@views.route('/reviews/<int:id>', methods=['DELETE'])
 def delete_review(id):
     review = Review.query.get_or_404(id)
     db.session.delete(review)
@@ -217,7 +214,7 @@ def delete_review(id):
     return '', 204
 
 # Wishlist CRUD
-@app.route('/wishlists', methods=['POST'])
+@views.route('/wishlists', methods=['POST'])
 def create_wishlist():
     data = request.get_json()
     wishlist, errors = wishlist_schema.load(data)
@@ -227,17 +224,17 @@ def create_wishlist():
     db.session.commit()
     return wishlist_schema.jsonify(wishlist), 201
 
-@app.route('/wishlists', methods=['GET'])
+@views.route('/wishlists', methods=['GET'])
 def get_wishlists():
     wishlists = Wishlist.query.all()
     return wishlist_schema.jsonify(wishlists, many=True), 200
 
-@app.route('/wishlists/<int:id>', methods=['GET'])
+@views.route('/wishlists/<int:id>', methods=['GET'])
 def get_wishlist(id):
     wishlist = Wishlist.query.get_or_404(id)
     return wishlist_schema.jsonify(wishlist), 200
 
-@app.route('/wishlists/<int:id>', methods=['PUT'])
+@views.route('/wishlists/<int:id>', methods=['PUT'])
 def update_wishlist(id):
     wishlist = Wishlist.query.get_or_404(id)
     data = request.get_json()
@@ -247,7 +244,7 @@ def update_wishlist(id):
     db.session.commit()
     return wishlist_schema.jsonify(updated_wishlist), 200
 
-@app.route('/wishlists/<int:id>', methods=['DELETE'])
+@views.route('/wishlists/<int:id>', methods=['DELETE'])
 def delete_wishlist(id):
     wishlist = Wishlist.query.get_or_404(id)
     db.session.delete(wishlist)
@@ -255,7 +252,7 @@ def delete_wishlist(id):
     return '', 204
 
 # Cart CRUD
-@app.route('/carts', methods=['POST'])
+@views.route('/carts', methods=['POST'])
 def create_cart():
     data = request.get_json()
     cart, errors = cart_schema.load(data)
@@ -265,17 +262,17 @@ def create_cart():
     db.session.commit()
     return cart_schema.jsonify(cart), 201
 
-@app.route('/carts', methods=['GET'])
+@views.route('/carts', methods=['GET'])
 def get_carts():
     carts = Cart.query.all()
     return cart_schema.jsonify(carts, many=True), 200
 
-@app.route('/carts/<int:id>', methods=['GET'])
+@views.route('/carts/<int:id>', methods=['GET'])
 def get_cart(id):
     cart = Cart.query.get_or_404(id)
     return cart_schema.jsonify(cart), 200
 
-@app.route('/carts/<int:id>', methods=['PUT'])
+@views.route('/carts/<int:id>', methods=['PUT'])
 def update_cart(id):
     cart = Cart.query.get_or_404(id)
     data = request.get_json()
@@ -285,7 +282,7 @@ def update_cart(id):
     db.session.commit()
     return cart_schema.jsonify(updated_cart), 200
 
-@app.route('/carts/<int:id>', methods=['DELETE'])
+@views.route('/carts/<int:id>', methods=['DELETE'])
 def delete_cart(id):
     cart = Cart.query.get_or_404(id)
     db.session.delete(cart)
@@ -293,7 +290,7 @@ def delete_cart(id):
     return '', 204
 
 # CartItem CRUD
-@app.route('/cart-items', methods=['POST'])
+@views.route('/cartitems', methods=['POST'])
 def create_cart_item():
     data = request.get_json()
     cart_item, errors = cart_item_schema.load(data)
@@ -303,17 +300,17 @@ def create_cart_item():
     db.session.commit()
     return cart_item_schema.jsonify(cart_item), 201
 
-@app.route('/cart-items', methods=['GET'])
+@views.route('/cartitems', methods=['GET'])
 def get_cart_items():
     cart_items = CartItem.query.all()
     return cart_item_schema.jsonify(cart_items, many=True), 200
 
-@app.route('/cart-items/<int:id>', methods=['GET'])
+@views.route('/cartitems/<int:id>', methods=['GET'])
 def get_cart_item(id):
     cart_item = CartItem.query.get_or_404(id)
     return cart_item_schema.jsonify(cart_item), 200
 
-@app.route('/cart-items/<int:id>', methods=['PUT'])
+@views.route('/cartitems/<int:id>', methods=['PUT'])
 def update_cart_item(id):
     cart_item = CartItem.query.get_or_404(id)
     data = request.get_json()
@@ -323,7 +320,7 @@ def update_cart_item(id):
     db.session.commit()
     return cart_item_schema.jsonify(updated_cart_item), 200
 
-@app.route('/cart-items/<int:id>', methods=['DELETE'])
+@views.route('/cartitems/<int:id>', methods=['DELETE'])
 def delete_cart_item(id):
     cart_item = CartItem.query.get_or_404(id)
     db.session.delete(cart_item)
@@ -331,7 +328,7 @@ def delete_cart_item(id):
     return '', 204
 
 # Payment CRUD
-@app.route('/payments', methods=['POST'])
+@views.route('/payments', methods=['POST'])
 def create_payment():
     data = request.get_json()
     payment, errors = payment_schema.load(data)
@@ -341,17 +338,17 @@ def create_payment():
     db.session.commit()
     return payment_schema.jsonify(payment), 201
 
-@app.route('/payments', methods=['GET'])
+@views.route('/payments', methods=['GET'])
 def get_payments():
     payments = Payment.query.all()
     return payment_schema.jsonify(payments, many=True), 200
 
-@app.route('/payments/<int:id>', methods=['GET'])
+@views.route('/payments/<int:id>', methods=['GET'])
 def get_payment(id):
     payment = Payment.query.get_or_404(id)
     return payment_schema.jsonify(payment), 200
 
-@app.route('/payments/<int:id>', methods=['PUT'])
+@views.route('/payments/<int:id>', methods=['PUT'])
 def update_payment(id):
     payment = Payment.query.get_or_404(id)
     data = request.get_json()
@@ -361,23 +358,33 @@ def update_payment(id):
     db.session.commit()
     return payment_schema.jsonify(updated_payment), 200
 
-@app.route('/payments/<int:id>', methods=['DELETE'])
+@views.route('/payments/<int:id>', methods=['DELETE'])
 def delete_payment(id):
     payment = Payment.query.get_or_404(id)
     db.session.delete(payment)
     db.session.commit()
     return '', 204
 
-# M-Pesa Payment Route
-@app.route('/mpesa/payment', methods=['POST'])
+# M-Pesa Payment
+@views.route('/mpesa/payment', methods=['POST'])
 def mpesa_payment():
     data = request.get_json()
     amount = data.get('amount')
     phone_number = data.get('phone_number')
-    if not amount or not phone_number:
-        return jsonify({"error": "Amount and phone number are required"}), 400
     response = lipa_na_mpesa_online(amount, phone_number)
     return jsonify(response), 200
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# File Upload
+@views.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({"message": "No file part"}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"message": "No selected file"}), 400
+
+    filename = secure_filename(file.filename)
+    file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+    file.save(file_path)
+    return jsonify({"filename": filename}), 201

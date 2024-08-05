@@ -9,80 +9,85 @@ import base64
 import os
 from werkzeug.utils import secure_filename
 
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///zuri_trends.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = 'uploads/' 
-app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}  
-db = SQLAlchemy(app)
-ma = Marshmallow(app)
-CORS(app)
+db = SQLAlchemy()
+ma = Marshmallow()
+CORS = CORS()
 
-consumer_key = 'yty83hjgw0EEGrxoV9j3AAQxVJL2hmjcvYMPxsjXH2ghL8AF'
-consumer_secret = 'asJhwuTM0XXBWyTJwCWgPWITuucxPoDkNiQWfeTQGgjGraLyl5KO6Ay93sxrSwIm'
-shortcode = '174379'
-lipa_na_mpesa_online_passkey = 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'
-callback_url = 'https://your_callback_url.com/callback'
-fixed_phone_number = '0115743312'
+def create_app():
+    app = Flask(__name__)
+    
+    app.config.from_object('app.config.Config')
 
-def get_access_token():
-    api_url = 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials'
-    response = requests.get(api_url, auth=HTTPBasicAuth(consumer_key, consumer_secret))
-    return response.json()['access_token']
+    db.init_app(app)
+    ma.init_app(app)
+    CORS(app)
 
-def lipa_na_mpesa_online(amount, phone_number):
-    access_token = get_access_token()
-    api_url = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
-    headers = {'Authorization': f'Bearer {access_token}'}
+    # API keys and configuration
+    global consumer_key, consumer_secret, shortcode, lipa_na_mpesa_online_passkey, callback_url, fixed_phone_number
+    consumer_key = app.config['CONSUMER_KEY']
+    consumer_secret = app.config['CONSUMER_SECRET']
+    shortcode = app.config['SHORTCODE']
+    lipa_na_mpesa_online_passkey = app.config['LIPA_NA_MPESA_ONLINE_PASSKEY']
+    callback_url = app.config['CALLBACK_URL']
+    fixed_phone_number = app.config['FIXED_PHONE_NUMBER']
 
-    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-    data_to_encode = shortcode + lipa_na_mpesa_online_passkey + timestamp
-    encoded_string = base64.b64encode(data_to_encode.encode())
-    password = encoded_string.decode('utf-8')
+    if not os.path.exists(app.config['UPLOAD_FOLDER']):
+        os.makedirs(app.config['UPLOAD_FOLDER'])
 
-    payload = {
-        "BusinessShortCode": shortcode,
-        "Password": password,
-        "Timestamp": timestamp,
-        "TransactionType": "CustomerPayBillOnline",
-        "Amount": amount,
-        "PartyA": phone_number,
-        "PartyB": shortcode,
-        "PhoneNumber": phone_number,
-        "CallBackURL": callback_url,
-        "AccountReference": "ZuriTrends",
-        "TransactionDesc": "Payment for goods"
-    }
+    def get_access_token():
+        api_url = 'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials'
+        response = requests.get(api_url, auth=HTTPBasicAuth(consumer_key, consumer_secret))
+        return response.json()['access_token']
 
-    response = requests.post(api_url, json=payload, headers=headers)
-    return response.json()
+    def lipa_na_mpesa_online(amount, phone_number):
+        access_token = get_access_token()
+        api_url = 'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest'
+        headers = {'Authorization': f'Bearer {access_token}'}
 
-def allowed_file(filename):
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        data_to_encode = shortcode + lipa_na_mpesa_online_passkey + timestamp
+        encoded_string = base64.b64encode(data_to_encode.encode())
+        password = encoded_string.decode('utf-8')
 
-@app.route('/upload_image', methods=['POST'])
-def upload_image():
-    if 'file' not in request.files:
-        return jsonify({'message': 'No file part'}), 400
+        payload = {
+            "BusinessShortCode": shortcode,
+            "Password": password,
+            "Timestamp": timestamp,
+            "TransactionType": "CustomerPayBillOnline",
+            "Amount": amount,
+            "PartyA": phone_number,
+            "PartyB": shortcode,
+            "PhoneNumber": phone_number,
+            "CallBackURL": callback_url,
+            "AccountReference": "ZuriTrends",
+            "TransactionDesc": "Payment for goods"
+        }
 
-    file = request.files['file']
+        response = requests.post(api_url, json=payload, headers=headers)
+        return response.json()
 
-    if file.filename == '':
-        return jsonify({'message': 'No selected file'}), 400
+    def allowed_file(filename):
+        return '.' in filename and \
+               filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(file_path)
-        return jsonify({'message': 'File uploaded successfully', 'file_path': file_path}), 200
+    @app.route('/upload_image', methods=['POST'])
+    def upload_image():
+        if 'file' not in request.files:
+            return jsonify({'message': 'No file part'}), 400
 
-    return jsonify({'message': 'Invalid file type'}), 400
+        file = request.files['file']
 
-if not os.path.exists(app.config['UPLOAD_FOLDER']):
-    os.makedirs(app.config['UPLOAD_FOLDER'])
+        if file.filename == '':
+            return jsonify({'message': 'No selected file'}), 400
 
-from app import views
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(file_path)
+            return jsonify({'message': 'File uploaded successfully', 'file_path': file_path}), 200
 
-if __name__ == '__main__':
-    app.run(port=5000, debug=True)
+        return jsonify({'message': 'Invalid file type'}), 400
+
+    from . import views
+
+    return app
