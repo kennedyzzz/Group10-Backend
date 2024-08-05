@@ -1,3 +1,5 @@
 .venv
 server/app/__pycache__
 zuri_trends.db
+instance
+migrations

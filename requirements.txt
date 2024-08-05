@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ipdb==0.13.9
 flask
 flask-sqlalchemy==3.0.3
@@ -14,3 +15,14 @@ flask-jwt-extended
 cloudinary
 pytest
 requests
+=======
+Flask==2.3.2
+Flask-Cors==4.0.0
+Flask-SQLAlchemy==3.0.0
+Flask-Marshmallow==0.15.0
+Flask-Migrate==4.0.0
+marshmallow-sqlalchemy==0.23.1
+python-dotenv==0.21.0
+requests==2.31.0
+Flask-RESTful==0.3.1
+>>>>>>> ft-kennedy-models
