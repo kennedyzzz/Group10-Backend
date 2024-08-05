@@ -1,18 +1,19 @@
 from flask import Flask
-from .config import Config
+from flask_sqlalchemy import SQLAlchemy
+from flask_marshmallow import Marshmallow
+
+db = SQLAlchemy()
+ma = Marshmallow()
 
 def create_app():
     app = Flask(__name__)
-    
-    app.config.from_object(Config)
+    app.config.from_object('server.app.config.Config')
 
-    from .models import db, ma
+
     db.init_app(app)
     ma.init_app(app)
 
-    from .views import main
-    app.register_blueprint(main)
+    from .views import views
+    app.register_blueprint(views)
 
     return app
-
-app = create_app()

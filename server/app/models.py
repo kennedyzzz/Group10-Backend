@@ -1,21 +1,25 @@
-from app import db, ma
+from flask_sqlalchemy import SQLAlchemy
+from flask_marshmallow import Marshmallow
 from datetime import datetime
 
-class Product(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    price = db.Column(db.Integer, nullable=False)
-    image_path = db.Column(db.String(200), nullable=False)  
-    quantity = db.Column(db.Integer, nullable=False)
-    catalog_id = db.Column(db.Integer, db.ForeignKey('catalog.id'), nullable=True)
-    size = db.Column(db.String(50))
-    color = db.Column(db.String(50))
-    description = db.Column(db.Text)
+db = SQLAlchemy()
+ma = Marshmallow()
 
 class Catalog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     products = db.relationship('Product', backref='catalog', lazy=True)
+
+class Product(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    price = db.Column(db.Integer, nullable=False)
+    image_path = db.Column(db.String(200), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    catalog_id = db.Column(db.Integer, db.ForeignKey('catalog.id'), nullable=True)
+    size = db.Column(db.String(50))
+    color = db.Column(db.String(50))
+    description = db.Column(db.Text)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)

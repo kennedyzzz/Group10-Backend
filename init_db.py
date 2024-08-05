@@ -1,6 +1,27 @@
-from app import db
-from app.models import Product, Catalog, User, Review, Wishlist, Cart, CartItem, Payment
+from flask import Flask
+from flask_migrate import Migrate, upgrade, init as migrate_init
+from server.app import create_app, db
+from server.app.models import Product, Catalog, User, Review, Wishlist, Cart, CartItem, Payment
 from datetime import datetime
+import os
+
+app = create_app()
+migrate = Migrate(app, db)
+
+def create_migrations():
+    """Initialize Flask-Migrate and create migration scripts if they don't exist."""
+    if not os.path.exists('migrations'):
+        with app.app_context():
+            migrate_init()
+            print("Migrations folder created.")
+    else:
+        print("Migrations folder already exists.")
+
+def apply_migrations():
+    """Apply migrations to the database."""
+    with app.app_context():
+        upgrade()
+        print("Database migrated.")
 
 def seed_catalogs():
     catalogs = [
@@ -90,14 +111,22 @@ def seed_payments():
     db.session.add_all(payments)
     db.session.commit()
 
+def init_db():
+    with app.app_context():
+        create_migrations()
+        apply_migrations()
+        try:
+            seed_catalogs()
+            seed_products()
+            seed_users()
+            seed_reviews()
+            seed_wishlist()
+            seed_cart()
+            seed_cart_items()
+            seed_payments()
+            print("Database initialized, migrated, and seeded!")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
 if __name__ == "__main__":
-    db.create_all()
-    seed_catalogs()
-    seed_products()
-    seed_users()
-    seed_reviews()
-    seed_wishlist()
-    seed_cart()
-    seed_cart_items()
-    seed_payments()
-    print("Database seeded!")
+    init_db()

@@ -1,2 +1,4 @@
 .venv
 server/app/__pycache__
+instance
+migrations

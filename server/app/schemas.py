@@ -1,6 +1,6 @@
-from flask_marshmallow import Marshmallow
-from app import ma
-from app.models import Product, Catalog, User, Review, Wishlist, Cart, CartItem, Payment
+from . import ma
+
+from server.app.models import Product, Catalog, User, Review, Wishlist, Cart, CartItem, Payment
 
 class ProductSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
@@ -40,5 +40,3 @@ class PaymentSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Payment
         include_fk = True
-
-ma = Marshmallow()
