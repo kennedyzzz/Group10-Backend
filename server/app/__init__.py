@@ -1,26 +1,28 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from flask_marshmallow import Marshmallow
 from flask_migrate import Migrate
-from server.app.config import Config
+from flask_marshmallow import Marshmallow
+from flask_cors import CORS
 
 db = SQLAlchemy()
-ma = Marshmallow()
 migrate = Migrate()
+ma = Marshmallow()
 
-def create_app():
+def create_app(config_class='config.Config'):
     app = Flask(__name__)
-    app.config.from_object(Config)
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///zuri_trends.db'
-    
+    app.config.from_object(config_class)
+
     db.init_app(app)
-    ma.init_app(app)
     migrate.init_app(app, db)
+    ma.init_app(app)
 
-    from server.app.views import views
-    app.register_blueprint(views)
+    from .views import views as views_blueprint
+    app.register_blueprint(views_blueprint, url_prefix='/api')
 
-    with app.app_context():
-        db.create_all()
+    CORS(app)
 
     return app
+
+if __name__ == '__main__':
+    app = create_app()
+    app.run(debug=True)

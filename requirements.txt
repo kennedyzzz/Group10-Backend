@@ -2,9 +2,8 @@ Flask==2.3.2
 Flask-Cors==4.0.0
 Flask-SQLAlchemy==3.0.0
 Flask-Marshmallow==0.15.0
-Flask-Migrate==3.1.0
-Flask-Script==2.0.6
+Flask-Migrate==4.0.0
 marshmallow-sqlalchemy==0.23.1
 python-dotenv==0.21.0
 requests==2.31.0
-
+Flask-RESTful==0.3.1

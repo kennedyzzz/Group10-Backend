@@ -19,7 +19,6 @@ def create_app():
 
     app = Flask(__name__)
     app.config.from_object('server.app.config.Config')
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///zuri_trends.db'
 
     db.init_app(app)
     ma.init_app(app)
@@ -142,15 +141,12 @@ def seed_payments():
 def init_db():
     app = create_app()
     with app.app_context():
-        # Create migrations and apply them
         create_migrations()
         apply_migrations()
-        
-        # Create database tables
+
         db.create_all()
         print("Database tables created.")
-        
-        # Seed the database
+
         seed_catalogs()
         seed_products()
         seed_users()

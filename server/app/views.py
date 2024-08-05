@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, send_from_directory
 from flask_cors import CORS
 import requests
 from requests.auth import HTTPBasicAuth
@@ -7,18 +7,16 @@ from datetime import datetime
 from werkzeug.utils import secure_filename
 import os
 
-from .models import Product, Catalog, User, Review, Wishlist, Cart, CartItem, Payment
-from .schemas import (
+from server.app.models import Product, Catalog, User, Review, Wishlist, Cart, CartItem, Payment
+from server.app.schemas import (
     ProductSchema, CatalogSchema, UserSchema, ReviewSchema, WishlistSchema,
     CartSchema, CartItemSchema, PaymentSchema
 )
-
-from .app import db  
+from server.app import db  
 
 views = Blueprint('main', __name__)
 CORS(views)
 
-# Initialize schemas
 product_schema = ProductSchema()
 catalog_schema = CatalogSchema()
 user_schema = UserSchema()
@@ -41,18 +39,18 @@ def lipa_na_mpesa_online(amount, phone_number):
     headers = {'Authorization': f'Bearer {access_token}'}
 
     timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-    data_to_encode = current_app.config['SHORTCODE'] + current_app.config['LIPA_NA_MPESA_ONLINE_PASSKEY'] + timestamp
+    data_to_encode = current_app.config['BUSINESS_SHORTCODE'] + current_app.config['LIPA_NA_MPESA_ONLINE_PASSKEY'] + timestamp
     encoded_string = base64.b64encode(data_to_encode.encode())
     password = encoded_string.decode('utf-8')
 
     payload = {
-        "BusinessShortCode": current_app.config['SHORTCODE'],
+        "BusinessShortCode": current_app.config['BUSINESS_SHORTCODE'],
         "Password": password,
         "Timestamp": timestamp,
         "TransactionType": "CustomerPayBillOnline",
         "Amount": amount,
         "PartyA": phone_number,
-        "PartyB": current_app.config['SHORTCODE'],
+        "PartyB": current_app.config['BUSINESS_SHORTCODE'],
         "PhoneNumber": phone_number,
         "CallBackURL": current_app.config['CALLBACK_URL'],
         "AccountReference": "Test123",
@@ -135,44 +133,6 @@ def update_product(id):
 def delete_product(id):
     product = Product.query.get_or_404(id)
     db.session.delete(product)
-    db.session.commit()
-    return '', 204
-
-# User CRUD
-@views.route('/users', methods=['POST'])
-def create_user():
-    data = request.get_json()
-    user, errors = user_schema.load(data)
-    if errors:
-        return jsonify(errors), 400
-    db.session.add(user)
-    db.session.commit()
-    return user_schema.jsonify(user), 201
-
-@views.route('/users', methods=['GET'])
-def get_users():
-    users = User.query.all()
-    return user_schema.jsonify(users, many=True), 200
-
-@views.route('/users/<int:id>', methods=['GET'])
-def get_user(id):
-    user = User.query.get_or_404(id)
-    return user_schema.jsonify(user), 200
-
-@views.route('/users/<int:id>', methods=['PUT'])
-def update_user(id):
-    user = User.query.get_or_404(id)
-    data = request.get_json()
-    updated_user, errors = user_schema.load(data, instance=user)
-    if errors:
-        return jsonify(errors), 400
-    db.session.commit()
-    return user_schema.jsonify(updated_user), 200
-
-@views.route('/users/<int:id>', methods=['DELETE'])
-def delete_user(id):
-    user = User.query.get_or_404(id)
-    db.session.delete(user)
     db.session.commit()
     return '', 204
 
@@ -290,8 +250,8 @@ def delete_cart(id):
     db.session.commit()
     return '', 204
 
-# CartItem CRUD
-@views.route('/cartitems', methods=['POST'])
+# Cart Item CRUD
+@views.route('/cart-items', methods=['POST'])
 def create_cart_item():
     data = request.get_json()
     cart_item, errors = cart_item_schema.load(data)
@@ -301,17 +261,17 @@ def create_cart_item():
     db.session.commit()
     return cart_item_schema.jsonify(cart_item), 201
 
-@views.route('/cartitems', methods=['GET'])
+@views.route('/cart-items', methods=['GET'])
 def get_cart_items():
     cart_items = CartItem.query.all()
     return cart_item_schema.jsonify(cart_items, many=True), 200
 
-@views.route('/cartitems/<int:id>', methods=['GET'])
+@views.route('/cart-items/<int:id>', methods=['GET'])
 def get_cart_item(id):
     cart_item = CartItem.query.get_or_404(id)
     return cart_item_schema.jsonify(cart_item), 200
 
-@views.route('/cartitems/<int:id>', methods=['PUT'])
+@views.route('/cart-items/<int:id>', methods=['PUT'])
 def update_cart_item(id):
     cart_item = CartItem.query.get_or_404(id)
     data = request.get_json()
@@ -321,7 +281,7 @@ def update_cart_item(id):
     db.session.commit()
     return cart_item_schema.jsonify(updated_cart_item), 200
 
-@views.route('/cartitems/<int:id>', methods=['DELETE'])
+@views.route('/cart-items/<int:id>', methods=['DELETE'])
 def delete_cart_item(id):
     cart_item = CartItem.query.get_or_404(id)
     db.session.delete(cart_item)
@@ -366,31 +326,12 @@ def delete_payment(id):
     db.session.commit()
     return '', 204
 
-# File upload
-@views.route('/upload', methods=['POST'])
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({'message': 'No file part'}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'message': 'No selected file'}), 400
-    if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
-        return jsonify({'message': 'File uploaded successfully'}), 201
-    return jsonify({'message': 'File type not allowed'}), 400
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
-
-@views.route('/mpesa_payment', methods=['POST'])
+# M-Pesa Payment Route
+@views.route('/mpesa-payment', methods=['POST'])
 def mpesa_payment():
     data = request.get_json()
     amount = data.get('amount')
     phone_number = data.get('phone_number')
 
-    if not amount or not phone_number:
-        return jsonify({'message': 'Amount and phone number are required'}), 400
-
     response = lipa_na_mpesa_online(amount, phone_number)
-    return jsonify(response), 200
+    return jsonify(response)
