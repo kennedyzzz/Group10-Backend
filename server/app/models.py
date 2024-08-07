@@ -3,7 +3,7 @@ from server.app import db
 class Catalog(db.Model):
     __tablename__ = 'catalog'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
+    name = db.Column(db.String(100),unique=True, nullable=False)
     products = db.relationship('Product', backref='catalog', lazy=True)
 
 class Product(db.Model):
