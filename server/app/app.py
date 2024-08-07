@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask,request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from flask_cors import CORS
@@ -133,23 +133,29 @@ def create_app():
             'description': product.description
         })
 
-    @app.route('/users', methods=['GET'])
-    def get_users():
+    @app.route('/users/<int:id>', methods=['GET', 'POST'])
+    def manage_users():
+     if request.method == 'GET':
         users = User.query.all()
         return jsonify([{
             'id': u.id,
             'name': u.name,
             'email': u.email
         } for u in users])
+    
+    if request.method == 'POST':
+        data = request.json
+        if User.query.filter_by(email=data['email']).first():
+            return jsonify({'error': 'Email already exists'}), 400
 
-    @app.route('/users/<int:id>', methods=['GET'])
-    def get_user(id):
-        user = User.query.get_or_404(id)
+        new_user = User(name=data['name'], password=data['password'], email=data['email'])
+        db.session.add(new_user)
+        db.session.commit()
         return jsonify({
-            'id': user.id,
-            'name': user.name,
-            'email': user.email
-        })
+            'id': new_user.id,
+            'name': new_user.name,
+            'email': new_user.email
+        }), 201
 
     @app.route('/reviews', methods=['GET'])
     def get_reviews():
